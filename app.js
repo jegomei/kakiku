@@ -348,10 +348,7 @@ function renderBoard() {
       }
       button.textContent = value || "";
       button.setAttribute("aria-label", value ? `Celda ${row + 1}, ${col + 1}, numero ${value}` : `Celda ${row + 1}, ${col + 1}`);
-      button.addEventListener("pointerdown", startSelection);
-      button.addEventListener("pointermove", moveSelection);
-      button.addEventListener("pointerenter", extendSelection);
-      button.addEventListener("pointerup", finishSelection);
+      button.addEventListener("click", handleCellSelection);
       boardEl.append(button);
     }
   }
@@ -400,43 +397,19 @@ function cellFromEvent(event) {
   };
 }
 
-function cellAtPoint(event) {
-  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest(".tile");
-  if (!target || !boardEl.contains(target)) return null;
-  return {
-    row: Number(target.dataset.row),
-    col: Number(target.dataset.col)
-  };
-}
-
-function startSelection(event) {
+function handleCellSelection(event) {
   if (paused || completed || event.button > 0) return;
   event.preventDefault();
-  activeStart = cellFromEvent(event);
-  previewRect = rectFromCells(activeStart, activeStart);
-  event.target.setPointerCapture(event.pointerId);
-  paintBoard();
-}
-
-function moveSelection(event) {
-  if (!activeStart || paused || completed) return;
-  const cell = cellAtPoint(event);
-  if (!cell) return;
-  previewRect = rectFromCells(activeStart, cell);
-  paintBoard();
-}
-
-function extendSelection(event) {
-  if (!activeStart || paused || completed) return;
   const cell = cellFromEvent(event);
   if (!cell) return;
-  previewRect = rectFromCells(activeStart, cell);
-  paintBoard();
-}
 
-function finishSelection(event) {
-  if (!activeStart || paused || completed) return;
-  const cell = cellAtPoint(event) || cellFromEvent(event) || activeStart;
+  if (!activeStart) {
+    activeStart = cell;
+    previewRect = rectFromCells(cell, cell);
+    paintBoard();
+    return;
+  }
+
   const rect = rectFromCells(activeStart, cell);
   activeStart = null;
   previewRect = null;
@@ -464,6 +437,7 @@ function commitSelection(rect) {
     return;
   }
 
+  paintBoard();
   flashRect(rect);
   renderStatus();
   saveState();
