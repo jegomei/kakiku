@@ -190,7 +190,11 @@ async function loadChallengeDatabase(size) {
 }
 
 function storageKey() {
-  return `kakiku-${puzzle.size}x${puzzle.size}-${puzzle.key}`;
+  return storageKeyFor(puzzle.size, puzzle.key);
+}
+
+function storageKeyFor(size, key) {
+  return `kakiku-${size}x${size}-${key}`;
 }
 
 function saveState() {
@@ -329,6 +333,42 @@ function formatTime(seconds) {
   const secs = Math.floor((totalCentiseconds % 6000) / 100);
   const centiseconds = totalCentiseconds % 100;
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`;
+}
+
+function resultText(size, seconds) {
+  return `He terminado el Kakiku ${size}x${size} de hoy en ${formatTime(seconds)}`;
+}
+
+function completedResultForSize(size) {
+  if (puzzle?.size === size && completed) {
+    return { size, elapsed };
+  }
+
+  const saved = localStorage.getItem(storageKeyFor(size, todayKey()));
+  if (!saved) return null;
+
+  try {
+    const parsed = JSON.parse(saved);
+    const savedElapsed = Number(parsed.elapsed);
+    if (!parsed.completed || !Number.isFinite(savedElapsed)) return null;
+    return { size, elapsed: savedElapsed };
+  } catch {
+    return null;
+  }
+}
+
+function shareText() {
+  const completedResults = [5, 10]
+    .map(completedResultForSize)
+    .filter(Boolean);
+
+  if (completedResults.length === 2) {
+    return completedResults
+      .map((result) => resultText(result.size, result.elapsed))
+      .join("\n\n");
+  }
+
+  return resultText(puzzle.size, elapsed);
 }
 
 function renderBoard() {
@@ -565,7 +605,7 @@ function completeGame() {
 }
 
 async function copyResult() {
-  const text = `He terminado el Kakiku ${puzzle.size}x${puzzle.size} de hoy en ${formatTime(elapsed)}`;
+  const text = shareText();
 
   try {
     await navigator.clipboard.writeText(text);
