@@ -1,5 +1,6 @@
 const DEFAULT_BOARD_SIZE = 5;
 const ONE_DAY = 24 * 60 * 60 * 1000;
+const TIMER_SAVE_INTERVAL = 250;
 const START_DATE = new Date("2026-01-01T00:00:00");
 const FIVE_BY_FIVE_LAYOUTS = [
   [
@@ -53,9 +54,12 @@ const boardEl = document.querySelector("#board");
 const timerEl = document.querySelector("#timer");
 const challengeLabel = document.querySelector("#challengeLabel");
 const pauseDialog = document.querySelector("#pauseDialog");
+const pauseTitle = document.querySelector("#pauseTitle");
 const winDialog = document.querySelector("#winDialog");
 const winStats = document.querySelector("#winStats");
 const copyResultButton = document.querySelector("#copyResultButton");
+const continueButton = document.querySelector("#continueButton");
+const restartFromPauseButton = document.querySelector("#restartFromPause");
 const mode5Button = document.querySelector("#mode5Button");
 const mode10Button = document.querySelector("#mode10Button");
 
@@ -70,6 +74,7 @@ let timerId = null;
 let paused = false;
 let completed = false;
 let lastTick = Date.now();
+let lastTimerSave = Date.now();
 
 function todayKey() {
   const now = new Date();
@@ -189,6 +194,7 @@ function storageKey() {
 }
 
 function saveState() {
+  if (!puzzle) return;
   localStorage.setItem(storageKey(), JSON.stringify({
     selections,
     elapsed,
@@ -318,9 +324,11 @@ function removeOverlappingSelections(rect) {
 }
 
 function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  const totalCentiseconds = Math.max(0, Math.floor(seconds * 100));
+  const mins = Math.floor(totalCentiseconds / 6000);
+  const secs = Math.floor((totalCentiseconds % 6000) / 100);
+  const centiseconds = totalCentiseconds % 100;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(centiseconds).padStart(2, "0")}`;
 }
 
 function renderBoard() {
@@ -459,40 +467,46 @@ function isSolved() {
 }
 
 function resetDay() {
+  stopTimer();
   selections = defaultSelections();
   activeStart = null;
   previewRect = null;
   elapsed = 0;
   completed = false;
-  paused = false;
+  paused = true;
   lastTick = Date.now();
+  lastTimerSave = Date.now();
   localStorage.removeItem(storageKey());
-  winDialog.close();
-  pauseDialog.close();
+  if (winDialog.open) winDialog.close();
   paintBoard();
   renderStatus();
-  startTimer();
+  schedulePlayPrompt(false);
 }
 
 function tick() {
   const now = Date.now();
   if (!paused && !completed) {
-    const diff = Math.floor((now - lastTick) / 1000);
+    const diff = (now - lastTick) / 1000;
     if (diff > 0) {
       elapsed += diff;
-      lastTick += diff * 1000;
+      lastTick = now;
       renderStatus();
-      saveState();
+      if (now - lastTimerSave >= TIMER_SAVE_INTERVAL) {
+        saveState();
+        lastTimerSave = now;
+      }
     }
   } else {
     lastTick = now;
+    lastTimerSave = now;
   }
 }
 
 function startTimer() {
   stopTimer();
   lastTick = Date.now();
-  timerId = window.setInterval(tick, 500);
+  lastTimerSave = lastTick;
+  timerId = window.setInterval(tick, 50);
 }
 
 function stopTimer() {
@@ -500,18 +514,41 @@ function stopTimer() {
   timerId = null;
 }
 
+function setPauseActions(hasStarted) {
+  pauseTitle.textContent = hasStarted ? "JUEGO EN PAUSA" : `Kakiku ${puzzle.size}x${puzzle.size}`;
+  continueButton.textContent = hasStarted ? "Continuar" : "Jugar";
+  restartFromPauseButton.hidden = !hasStarted;
+}
+
+function openPlayPrompt(hasStarted = elapsed > 0) {
+  if (completed) return;
+  paused = true;
+  stopTimer();
+  setPauseActions(hasStarted);
+  pauseDialog.classList.remove("is-hidden");
+  pauseDialog.setAttribute("aria-hidden", "false");
+}
+
+function schedulePlayPrompt(hasStarted = elapsed > 0) {
+  paused = true;
+  stopTimer();
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => openPlayPrompt(hasStarted));
+  });
+}
+
 function openPause() {
   if (completed) return;
   tick();
-  paused = true;
-  stopTimer();
-  pauseDialog.showModal();
+  saveState();
+  openPlayPrompt(true);
 }
 
 function closePause() {
   if (completed) return;
   paused = false;
-  if (pauseDialog.open) pauseDialog.close();
+  pauseDialog.classList.add("is-hidden");
+  pauseDialog.setAttribute("aria-hidden", "true");
   startTimer();
 }
 
@@ -520,6 +557,8 @@ function completeGame() {
   completed = true;
   paused = false;
   stopTimer();
+  pauseDialog.classList.add("is-hidden");
+  pauseDialog.setAttribute("aria-hidden", "true");
   winStats.textContent = formatTime(elapsed);
   saveState();
   winDialog.showModal();
@@ -564,12 +603,14 @@ async function switchMode(size) {
   if (size === currentBoardSize && puzzle) return;
 
   tick();
+  saveState();
   stopTimer();
   currentBoardSize = size;
   activeStart = null;
   previewRect = null;
   paused = false;
-  if (pauseDialog.open) pauseDialog.close();
+  pauseDialog.classList.add("is-hidden");
+  pauseDialog.setAttribute("aria-hidden", "true");
   if (winDialog.open) winDialog.close();
 
   mode5Button.classList.toggle("active", size === 5);
@@ -585,27 +626,22 @@ async function switchMode(size) {
   loadState();
   renderBoard();
   renderStatus();
-  if (!completed) startTimer();
+  if (!completed) schedulePlayPrompt(elapsed > 0);
 }
 
 async function init() {
   initModeSwitch();
   challengeLabel.textContent = `Reto ${challengeNumber()}`;
-  await switchMode(DEFAULT_BOARD_SIZE);
 
   document.querySelector("#pauseButtonBottom").addEventListener("click", openPause);
-  document.querySelector("#continueButton").addEventListener("click", closePause);
-  document.querySelector("#resetButton").addEventListener("click", resetDay);
+  continueButton.addEventListener("click", closePause);
+  restartFromPauseButton.addEventListener("click", resetDay);
   copyResultButton.addEventListener("click", copyResult);
-  document.querySelector("#restartFromPause").addEventListener("click", resetDay);
-
-  pauseDialog.addEventListener("close", () => {
-    if (!completed && paused) closePause();
-  });
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       tick();
+      saveState();
       stopTimer();
     } else if (!completed && !paused) {
       startTimer();
@@ -613,6 +649,7 @@ async function init() {
   });
 
   preventBrowserZoom();
+  await switchMode(DEFAULT_BOARD_SIZE);
 }
 
 init();

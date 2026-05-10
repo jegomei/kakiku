@@ -169,6 +169,7 @@ button {
 }
 
 .board {
+  --board-size: 5;
   --tile-size: var(--tile-size-5);
   width: calc(var(--tile-size) * var(--board-size));
   display: grid;
@@ -315,6 +316,25 @@ button {
   background: var(--orange);
 }
 
+.pause-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  background: rgba(244, 244, 246, 0.74);
+  backdrop-filter: blur(4px);
+}
+
+.pause-overlay.is-hidden {
+  display: none;
+}
+
+.pause-overlay .modal-card {
+  width: min(calc(100vw - 80px), 400px);
+}
+
 .modal {
   width: min(calc(100vw - 80px), 400px);
   margin: auto;
@@ -417,6 +437,10 @@ button {
   }
 
   .modal {
+    width: min(calc(100vw - 36px), 360px);
+  }
+
+  .pause-overlay .modal-card {
     width: min(calc(100vw - 36px), 360px);
   }
 
