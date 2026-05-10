@@ -578,7 +578,10 @@ function schedulePlayPrompt(hasStarted = elapsed > 0) {
 }
 
 function openPause() {
-  if (completed) return;
+  if (completed) {
+    openWinDialog();
+    return;
+  }
   tick();
   saveState();
   openPlayPrompt(true);
@@ -592,16 +595,20 @@ function closePause() {
   startTimer();
 }
 
+function openWinDialog() {
+  pauseDialog.classList.add("is-hidden");
+  pauseDialog.setAttribute("aria-hidden", "true");
+  winStats.textContent = formatTime(elapsed);
+  if (!winDialog.open) winDialog.showModal();
+}
+
 function completeGame() {
   tick();
   completed = true;
   paused = false;
   stopTimer();
-  pauseDialog.classList.add("is-hidden");
-  pauseDialog.setAttribute("aria-hidden", "true");
-  winStats.textContent = formatTime(elapsed);
   saveState();
-  winDialog.showModal();
+  openWinDialog();
 }
 
 async function copyResult() {
