@@ -69,7 +69,7 @@ button {
   width: min(100%, 470px);
   min-height: 100svh;
   margin: 0 auto;
-  padding: max(6px, env(safe-area-inset-top)) 20px max(26px, env(safe-area-inset-bottom));
+  padding: 0 20px max(26px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -77,42 +77,53 @@ button {
 }
 
 .topbar {
-  width: 100%;
-  min-height: 54px;
+  width: 100vw;
+  min-height: calc(86px + env(safe-area-inset-top));
+  margin-inline: calc(50% - 50vw);
+  padding: max(7px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) 7px max(24px, env(safe-area-inset-left));
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
+  background: var(--orange);
+  color: #050505;
 }
 
 .brand {
+  position: relative;
+  width: min(100%, 470px);
+  min-height: 72px;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
 }
 
 .brand-icon {
-  width: 38px;
-  height: 38px;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 72px;
+  height: 72px;
   flex: 0 0 auto;
-  border-radius: 8px;
+  border-radius: 14px;
   display: block;
+  transform: translateY(-50%);
 }
 
 .brand h1 {
-  margin: -2px 0 0;
+  margin: 0;
   font-size: 31px;
   line-height: 1;
   letter-spacing: 0;
-  font-weight: 400;
+  font-weight: 900;
+  text-align: center;
 }
 
 .brand p {
-  margin: 4px 0 0;
-  color: var(--muted);
+  margin: 5px 0 0;
+  color: inherit;
   font-size: 16px;
   font-weight: 400;
-  text-align: left;
+  text-align: center;
 }
 
 .timer-row {
